@@ -20,6 +20,10 @@
     <script type="text/javascript">
 
     var currentPersonality = 'excited';
+    function setPersonality(p) {
+      currentPersonality = p;
+      console.log("Personality changed to " + p);
+    }
     var maxhz = 0.5;
     var maxrandamp = 5;
     var neutral = {
@@ -47,7 +51,7 @@
         
       },
       // positive valence, low arousal
-      'sleepy' : {
+      'calm' : {
         'inner': {
           'amp':70,
           'randamp':0,
@@ -264,7 +268,7 @@
       }
       function checkCircle(ctx,data,w,h,r) {
         var in_count = 0;
-        var threshold = 15;
+        var threshold = 25;
         for(var y = 0; y < h; y++) {
           for (var x = 0; x < w; x++) {
             if (data[(y*w) + x] == 255) {
@@ -288,6 +292,13 @@
           return false;
         }
       }
+    function startSample() {
+      socket.emit('start_sample');
+    }
+    function stopSample() {
+      socket.emit("stop_sample");
+    }
+
       function makePix(data) {
           var c = document.getElementById("myCanvas");
           var ctx=c.getContext("2d");
@@ -311,5 +322,9 @@
     <button type="button" onclick="startSample()">Start sample</button>
     <button type="button" onclick="stopSample()">Stop sample</button>
     <button type="button" onclick="lockCentroid()">Confirm robot location</button>
+    <button type="button" onclick="setPersonality('excited')">Set personality to Excited</button>
+    <button type="button" onclick="setPersonality('depressed')">Set personality to Depressed</button>
+    <button type="button" onclick="setPersonality('anxious')">Set personality to Anxious</button>
+    <button type="button" onclick="setPersonality('calm')">Set personality to Calm</button>
   </body>
 </html>
