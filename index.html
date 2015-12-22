@@ -24,72 +24,81 @@
 
     // amp: 70, randamp: 20, hz: 0.1, offset: 0 }
     // starts 'neutral'
+
+    var currentPersonality = 'excited';
+    var maxhz = 0.5;
+    var maxrandamp = 5;
     var neutral = {
-      'amp':50,
-      'randamp':2,
+      'amp':70,
+      'randamp':2.5,
       'hz':0.1,
       'offset':0,
     }
-
-    // multipliers
-    var valence = {
-      'high': {
-        'amp':1,
-        'randamp':0.5,
-        'hz':1,
-        'offset':0,
-      },
-      'neutral': {
-        'amp':1,
-        'randamp':1,
-        'hz':1,
-        'offset':0,
-      },
-      'low': {
-        'amp':0.5,
-        'randamp':0.5,
-        'hz':1,
-        'offset':0,
-      },
-    }
-
-
     var personalities = {
       // positive valence, high arousal
       'excited' : {
-        'valence':1,
-        'arousal':1,
-        'amp':70,
-        'randamp':2,
-        'hz':0.2,
-        'offset':0,
+        'inner': {
+          'amp':70,
+          'randamp':0,
+          'hz':0.5,
+          'offset':0,
+        },
+        'outer': {
+          'amp':70,
+          'randamp':1.25,
+          'hz':0.25,
+          'offset':0,
+        },
+        'neutral' : neutral
+        
       },
       // positive valence, low arousal
       'sleepy' : {
-        'valence':1,
-        'arousal':-1,
-        'amp':30,
-        'randamp':1,
-        'hz':0.1,
-        'offset':0,
+        'inner': {
+          'amp':70,
+          'randamp':0,
+          'hz':0.05,
+          'offset':0,
+        },
+        'outer': {
+          'amp':70,
+          'randamp':1.25,
+          'hz':0.075,
+          'offset':0,
+        },
+        'neutral' : neutral
       },
       // negative valence, high arousal
       'anxious' : {
-        'valence':-1,
-        'arousal':1,
-        'amp':70,
-        'randamp':20,
-        'hz':0.1,
-        'offset':0,
+        'inner': {
+          'amp':70,
+          'randamp':5,
+          'hz':0.5,
+          'offset':0,
+        },
+        'outer': {
+          'amp':70,
+          'randamp':3.75,
+          'hz':0.375,
+          'offset':0,
+        },
+        'neutral' : neutral
       },
       // negative valence, low arousal
       'depressed' : {
-        'valence':-1,
-        'arousal':-1,
-        'amp':30,
-        'randamp':25,
-        'hz':0.1,
-        'offset':0,
+        'inner': {
+          'amp':70,
+          'randamp':5,
+          'hz':0.05,
+          'offset':0,
+        },
+        'outer': {
+          'amp':70,
+          'randamp':3.75,
+          'hz':0.075,
+          'offset':0,
+        },
+        'neutral' : neutral
       },
     }
 
@@ -119,17 +128,42 @@
         }
         return m;
       }
-      var just_touched = false;
+      function objectEqual(o1,o2) {
+        for (key in o1) {
+          if (key in o2) {
+            if (o1[key] != o2[key]) {
+              return false;
+            }
+          } else {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      var data = {};
       function testBoard(gb) {
-        var data = {};
-        if (gb == 'in') {
-          data = personalities['sleepy'];
-          if (just_touched) {
+        if (gb == 'inner') {
+          var getData = personalities[currentPersonality]['inner'];
+          if (objectEqual(getData,data)) {
+          } else {
+            data = getData;
             socket.emit('touching',data);
-            just_touched = false;
+          }
+        } else if (gb == 'outer') {
+          var getData = personalities[currentPersonality]['outer'];
+          if (objectEqual(getData,data)) {
+          } else {
+            data = getData;
+            socket.emit('touching',data);
           }
         } else {
-          just_touched = true;
+          var getData = personalities[currentPersonality]['neutral'];
+          if (objectEqual(getData,data)) {
+          } else {
+            data = getData;
+            socket.emit('touching',data);
+          }
         }
       }
 
@@ -302,11 +336,14 @@
           centroid_store = centroid(data,640,480);
         }
         // cc (d,w,h,r)
-        if (centroid_locked && checkCircle(ctx,data,640,480,100)) {
-          console.log("don't touch!")
-          testBoard('in');
-        } else {
-          testBoard('out');
+        if (centroid_locked) {
+           if (checkCircle(ctx,data,640,480,50)) {
+            testBoard('inner');
+           } else if ((checkCircle(ctx,data,640,480,100))) {
+            testBoard('outer');
+           } else {
+            testBoard('out');
+           }
         }
         drawCircle(ctx,centroid_store,5,"#FF0000") // centroid
         drawCircle(ctx,centroid_store,100,"#00FF00") // ps
