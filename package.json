@@ -1,0 +1,25 @@
+{
+  "name": "kinect",
+  "description": "Experimental!!!!",
+  "version": "0.3.0",
+  "author": "Pedro Teixeira",
+  "main": "kinect.js",
+  "tags": [
+    "kinect"
+  ],
+  "devDependencies": {
+    "mocha": "*"
+  },
+  "scripts": {
+    "test": "node_modules/.bin/mocha test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/pgte/node-kinect.git"
+  },
+  "dependencies": {
+    "express": "^4.13.3",
+    "johnny-five": "^0.9.17",
+    "socket.io": "^1.3.7"
+  }
+}

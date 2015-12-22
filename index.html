@@ -1,0 +1,389 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+    </style>
+  </head>
+  <body>
+    <!-- <ul id="messages"></ul>
+    <form action="">
+      <input id="m" autocomplete="off" /><button>Send</button>
+    </form> -->
+    <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script type="text/javascript">
+
+    // amp: 70, randamp: 20, hz: 0.1, offset: 0 }
+    // starts 'neutral'
+    var neutral = {
+      'amp':50,
+      'randamp':2,
+      'hz':0.1,
+      'offset':0,
+    }
+
+    // multipliers
+    var valence = {
+      'high': {
+        'amp':1,
+        'randamp':0.5,
+        'hz':1,
+        'offset':0,
+      },
+      'neutral': {
+        'amp':1,
+        'randamp':1,
+        'hz':1,
+        'offset':0,
+      },
+      'low': {
+        'amp':0.5,
+        'randamp':0.5,
+        'hz':1,
+        'offset':0,
+      },
+    }
+
+
+    var personalities = {
+      // positive valence, high arousal
+      'excited' : {
+        'valence':1,
+        'arousal':1,
+        'amp':70,
+        'randamp':2,
+        'hz':0.2,
+        'offset':0,
+      },
+      // positive valence, low arousal
+      'sleepy' : {
+        'valence':1,
+        'arousal':-1,
+        'amp':30,
+        'randamp':1,
+        'hz':0.1,
+        'offset':0,
+      },
+      // negative valence, high arousal
+      'anxious' : {
+        'valence':-1,
+        'arousal':1,
+        'amp':70,
+        'randamp':20,
+        'hz':0.1,
+        'offset':0,
+      },
+      // negative valence, low arousal
+      'depressed' : {
+        'valence':-1,
+        'arousal':-1,
+        'amp':30,
+        'randamp':25,
+        'hz':0.1,
+        'offset':0,
+      },
+    }
+
+      // v1 + v2
+      function addVectors(v1,v2) {
+        for(var i = 0; i < v1.length; i++) {
+          v1[i] = v1[i] + v2[i];
+        }
+        return v1;
+      }
+
+      // v1 - v2
+      function minusVectors(v1,v2) {
+        for(var i = 0; i < v1.length; i++) {
+          v1[i] = v1[i] - v2[i];
+        }
+        return v1;
+      }
+
+      // max(arr)
+      function maxVector(arr) {
+        var m = -Infinity;
+        for(var i = 0; i<arr.length; i++) {
+          if (arr[i] > m) {
+            m = arr[i];
+          }
+        }
+        return m;
+      }
+      var just_touched = false;
+      function testBoard(gb) {
+        var data = {};
+        if (gb == 'in') {
+          data = personalities['sleepy'];
+          if (just_touched) {
+            socket.emit('touching',data);
+            just_touched = false;
+          }
+        } else {
+          just_touched = true;
+        }
+      }
+
+      // sv
+      function scalarVector(s,v) {
+        for(var i = 0; i < v.length; i++) {
+          v[i] = v[i] * s;
+        }
+        return v;
+      }
+      function max(a,b) {
+        if (a>b) {
+          return a;
+        } else {
+          return b;
+        }
+      }
+      function min(a,b) {
+        if (a<b) {
+          return a;
+        } else {
+          return b;
+        }
+      }
+      function minElement(v1,v2) {
+        for(var i = 0; i < v1.length; i++) {
+          v1[i] = min(v1[i],v2[i]);
+        }
+        return v1;
+      }
+
+      var samplr = [];
+      var sample_count = 0;
+      var sample_allowed = true;
+      var sample_happening = false;
+      function startSample() {
+        socket.emit('start_sample');
+        // sample_allowed = true;
+        // sample_happening = true;
+      }
+      function sample(arr) {
+        if(samplr.length == 0) {
+          samplr = arr;
+        } else {
+          samplr = minElement(samplr,arr); // get reading closest to Kinect
+        }
+        sample_count++;
+      }
+      function stopSample() {
+        socket.emit("stop_sample");
+        // sample_allowed = false;
+        // sample_happening = false;
+        // console.log("Sample : " + samplr)
+        // averageSample();
+      }
+      function checkSample(arr) {
+        for (var i = 0; i < arr.length; i++) {
+          if (arr[i] > 2048 || arr[i] < 0) {
+            console.log("Error: sample array has value at " + arr[i]);
+          }
+        }
+      }
+      function averageSample() {
+        sample = scalarVector((1/sample_count),sample);
+        checkSample(sample);
+      }
+      function check_last_sample() {
+        var counter = 0;
+        for (i in last_sample[0]) {
+          if (last_sample[0][i] == last_sample[1][i]) {
+            counter++;
+          }
+        }
+        if (counter == last_sample[0].length) {
+          console.log("Bad last sample.");
+        }
+      }
+      var horizon = 3;
+      var last_sample = new Array(horizon);
+      function shortHorizon(data) {
+        var ret = [];
+        check_last_sample();
+        for (i in data) {
+          ret.push(data[i] & (last_sample[0][i] & last_sample[1][i]));
+        }
+        return ret;
+      }
+      
+      function minimizer(data) {
+        var ret = [];
+        for (i in data) {
+          if ((data[i] + 10) < samplr[i]) {
+            ret.push(255)
+          } else {
+            ret.push(0);
+          }
+        }
+        return ret;
+      }
+
+      function ranger(data) {
+        var ret = []
+        for (i in data) {
+          var d = (data[i] / 2048) * 255;
+          ret.push(d);
+        }
+        return ret;
+      }
+
+      function longHorizon(cur) {
+        var ret = cur.slice();
+        for (i in last_sample) {
+          for (j in last_sample[i]) {
+            ret[j] = ret[j] & last_sample[i][j];
+          }
+        }
+        return ret;
+      }
+
+      function process(data) {
+        var current = minimizer(data);
+        if (last_sample[0] == null) {
+          console.log("yes it was null");
+          for (var i in last_sample) {
+            last_sample[i] = current.slice();
+          }
+        }
+        makePix(longHorizon(current));
+        last_sample.unshift(current.slice());
+        last_sample.pop()
+        // if (last_sample.length == 2) {
+        //   last_sample[1] = last_sample[0].slice();
+        //   last_sample[0] = current.slice();
+        // }
+      }
+      function centroid(arr,w,h) {
+        var x_sum = 0;
+        var y_sum = 0;
+        var val_sum = 0;
+        // console.log(arr.length);
+        for (var y = 0; y < h; y++) {
+          for (var x = 0; x < w; x++) {
+            // console.log(val)
+            var val = arr[y*w + x];
+            val_sum += val;
+            x_sum += val * x;
+            y_sum += val * y;
+          }
+        }
+        
+        var ret = {
+          'x':x_sum / val_sum,
+          'y':y_sum / val_sum,
+        }
+        // console.log(ret);
+        return ret;
+      }
+      function drawCircle(ctx,coords,r,color) {
+        ctx.strokeStyle=color;
+        ctx.beginPath();
+        ctx.arc(coords['x'],coords['y'],r,0,2*Math.PI);
+        ctx.stroke();
+      }
+      var centroid_locked = false;
+      var centroid_store;
+
+      function drawCentre(data,ctx) {
+        if (centroid_locked) {
+        } else {
+          centroid_store = centroid(data,640,480);
+        }
+        // cc (d,w,h,r)
+        if (centroid_locked && checkCircle(ctx,data,640,480,100)) {
+          console.log("don't touch!")
+          testBoard('in');
+        } else {
+          testBoard('out');
+        }
+        drawCircle(ctx,centroid_store,5,"#FF0000") // centroid
+        drawCircle(ctx,centroid_store,100,"#00FF00") // ps
+        drawCircle(ctx,centroid_store,50,"#0000FF") // initmate
+      }
+
+      function lockCentroid() {
+        centroid_locked = true;
+        zeroAgain();
+      }
+      function zeroAgain() {
+        sample_allowed = true;
+      }
+      function distance(x1,y1,x2,y2) {
+        dx = x2 - x1;
+        dy = y2 - y1;
+        var d = Math.sqrt(Math.pow(dx,2) + Math.pow(dy,2));
+        return d;
+      }
+      function checkCircle(ctx,data,w,h,r) {
+        var in_count = 0;
+        var threshold = 15;
+        for(var y = 0; y < h; y++) {
+          for (var x = 0; x < w; x++) {
+            if (data[(y*w) + x] == 255) {
+              var dist = distance(x,y,centroid_store['x'],centroid_store['y']);
+              if (dist < r) {
+                // console.log(dist,r,centroid_store,x,y)
+                var rc = 255;
+                var gc = 0;
+                var bc = 0;
+                var ac = 255;
+                ctx.fillStyle = "rgba("+rc+","+gc+","+bc+","+(ac/255)+")";
+                ctx.fillRect( x, y, 1, 1 );
+                in_count++;
+              }
+            }
+          }
+        }
+        if (in_count > threshold) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+
+      function makePix(data) {
+          var c = document.getElementById("myCanvas");
+          var ctx=c.getContext("2d");
+          var imgData=ctx.createImageData(640,480);
+          for (var i=0;i<data.length;i++) {
+            imgData.data[(i*4)+0]=data[i];
+            imgData.data[(i*4)+1]=data[i]; 
+            imgData.data[(i*4)+2]=data[i];
+            imgData.data[(i*4)+3]=255;
+          }
+          ctx.putImageData(imgData,0,0);
+          drawCentre(data,ctx)
+      }
+      var socket = io();
+
+      socket.on('not a chat', function(msg){
+        makePix(msg);
+        // console.log("data received")
+        // if (sample_happening && sample_allowed) {
+        //   sample(msg);
+        // } else if (!sample_allowed) {
+        //   process(msg);
+        // } else {
+        //   makePix(ranger(msg));
+        // }
+      });
+    </script>
+    <canvas id="myCanvas" width="640" height="480" style="border:1px solid #000000;">
+    </canvas>
+    <button type="button" onclick="startSample()">Start sample</button>
+    <button type="button" onclick="stopSample()">Stop sample</button>
+    <button type="button" onclick="lockCentroid()">Confirm robot location</button>
+  </body>
+</html>
