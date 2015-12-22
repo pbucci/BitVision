@@ -12,8 +12,12 @@
 
 # Run
 
-* $ node index
+* node index
 * Navigate to localhost:3000
+
+# Known issues
+
+If too many things get piped through the websockets at once, a segfault will occur. This means that you might need to restart the process a couple of times before getting a connection through. I suggest opening the webpage, running node index, letting it inevitably segfault, then re-running node index. Seems to always work fine on the second try.
 
 # Sources
 
