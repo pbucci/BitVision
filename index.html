@@ -14,16 +14,10 @@
     </style>
   </head>
   <body>
-    <!-- <ul id="messages"></ul>
-    <form action="">
-      <input id="m" autocomplete="off" /><button>Send</button>
-    </form> -->
     <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <!--TODO move this into a served JS file-->
     <script type="text/javascript">
-
-    // amp: 70, randamp: 20, hz: 0.1, offset: 0 }
-    // starts 'neutral'
 
     var currentPersonality = 'excited';
     var maxhz = 0.5;
@@ -195,94 +189,6 @@
         return v1;
       }
 
-      var samplr = [];
-      var sample_count = 0;
-      var sample_allowed = true;
-      var sample_happening = false;
-      function startSample() {
-        socket.emit('start_sample');
-        // sample_allowed = true;
-        // sample_happening = true;
-      }
-      function sample(arr) {
-        if(samplr.length == 0) {
-          samplr = arr;
-        } else {
-          samplr = minElement(samplr,arr); // get reading closest to Kinect
-        }
-        sample_count++;
-      }
-      function stopSample() {
-        socket.emit("stop_sample");
-        // sample_allowed = false;
-        // sample_happening = false;
-        // console.log("Sample : " + samplr)
-        // averageSample();
-      }
-      function checkSample(arr) {
-        for (var i = 0; i < arr.length; i++) {
-          if (arr[i] > 2048 || arr[i] < 0) {
-            console.log("Error: sample array has value at " + arr[i]);
-          }
-        }
-      }
-      function averageSample() {
-        sample = scalarVector((1/sample_count),sample);
-        checkSample(sample);
-      }
-      function check_last_sample() {
-        var counter = 0;
-        for (i in last_sample[0]) {
-          if (last_sample[0][i] == last_sample[1][i]) {
-            counter++;
-          }
-        }
-        if (counter == last_sample[0].length) {
-          console.log("Bad last sample.");
-        }
-      }
-      var horizon = 3;
-      var last_sample = new Array(horizon);
-      function shortHorizon(data) {
-        var ret = [];
-        check_last_sample();
-        for (i in data) {
-          ret.push(data[i] & (last_sample[0][i] & last_sample[1][i]));
-        }
-        return ret;
-      }
-      
-      function minimizer(data) {
-        var ret = [];
-        for (i in data) {
-          if ((data[i] + 10) < samplr[i]) {
-            ret.push(255)
-          } else {
-            ret.push(0);
-          }
-        }
-        return ret;
-      }
-
-      function ranger(data) {
-        var ret = []
-        for (i in data) {
-          var d = (data[i] / 2048) * 255;
-          ret.push(d);
-        }
-        return ret;
-      }
-
-      function longHorizon(cur) {
-        var ret = cur.slice();
-        for (i in last_sample) {
-          for (j in last_sample[i]) {
-            ret[j] = ret[j] & last_sample[i][j];
-          }
-        }
-        return ret;
-      }
-
       function process(data) {
         var current = minimizer(data);
         if (last_sample[0] == null) {
@@ -294,19 +200,13 @@
         makePix(longHorizon(current));
         last_sample.unshift(current.slice());
         last_sample.pop()
-        // if (last_sample.length == 2) {
-        //   last_sample[1] = last_sample[0].slice();
-        //   last_sample[0] = current.slice();
-        // }
       }
       function centroid(arr,w,h) {
         var x_sum = 0;
         var y_sum = 0;
         var val_sum = 0;
-        // console.log(arr.length);
         for (var y = 0; y < h; y++) {
           for (var x = 0; x < w; x++) {
-            // console.log(val)
             var val = arr[y*w + x];
             val_sum += val;
             x_sum += val * x;
@@ -318,7 +218,6 @@
           'x':x_sum / val_sum,
           'y':y_sum / val_sum,
         }
-        // console.log(ret);
         return ret;
       }
       function drawCircle(ctx,coords,r,color) {
@@ -377,7 +276,7 @@
                 var bc = 0;
                 var ac = 255;
                 ctx.fillStyle = "rgba("+rc+","+gc+","+bc+","+(ac/255)+")";
-                ctx.fillRect( x, y, 1, 1 );
+                ctx.fillRect(x,y,1,1);
                 in_count++;
               }
             }
@@ -389,7 +288,6 @@
           return false;
         }
       }
-
       function makePix(data) {
           var c = document.getElementById("myCanvas");
           var ctx=c.getContext("2d");
@@ -404,17 +302,8 @@
           drawCentre(data,ctx)
       }
       var socket = io();
-
-      socket.on('not a chat', function(msg){
+      socket.on('pix', function(msg){
         makePix(msg);
-        // console.log("data received")
-        // if (sample_happening && sample_allowed) {
-        //   sample(msg);
-        // } else if (!sample_allowed) {
-        //   process(msg);
-        // } else {
-        //   makePix(ranger(msg));
-        // }
       });
     </script>
     <canvas id="myCanvas" width="640" height="480" style="border:1px solid #000000;">

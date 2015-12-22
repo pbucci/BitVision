@@ -61,7 +61,7 @@ io.on('connection', function(socket){
 });
 
 // Takes depth buffer and processes it
-// Each pixel in depth buffer is 2 bytes, little endian
+// Each pixel in depth buffer is 2 bytes, 11-bit, little endian
 // maximum value per pixel should be 2048
 // minimum value should be 0, but seems to hover around 400
 function buf2pic(buff) {
@@ -75,20 +75,7 @@ function buf2pic(buff) {
   handleBuffer(arr);
 }
 
-
-function scalarVector(s,v) {
-  for(var i = 0; i < v.length; i++) {
-    v[i] = v[i] * s;
-  }
-  return v;
-}
-function max(a,b) {
-  if (a>b) {
-    return a;
-  } else {
-    return b;
-  }
-}
+// Standard minimum function
 function min(a,b) {
   if (a<b) {
     return a;
@@ -96,13 +83,19 @@ function min(a,b) {
     return b;
   }
 }
+
+// Returns minimum element of two arrays
 function minElement(v1,v2) {
   for(var i = 0; i < v1.length; i++) {
     v1[i] = min(v1[i],v2[i]);
   }
   return v1;
 }
-
+//////////////////////////////////////////////////////////////////////////
+// Sampling functions
+// Sample allows for 'zeroed' desk space stores minimum pixel value over 
+// full sample space (closest to Kinect). Any objects closer to the Kinect 
+// are assumed to be either the robot or the user's hand.
 var samplr = [];
 var sample_count = 0;
 var sample_allowed = true;
@@ -111,6 +104,8 @@ function startSample() {
   sample_allowed = true;
   sample_happening = true;
 }
+
+// Handle samples
 function sample(arr) {
   if(samplr.length == 0) {
     samplr = arr;
@@ -154,6 +149,8 @@ function shortHorizon(data) {
   return ret;
 }
 
+// Returns binary map of pixels below sample thresholds where 
+// true is set to 'white' or 255
 function minimizer(data) {
   var ret = [];
   for (i in data) {
@@ -166,6 +163,8 @@ function minimizer(data) {
   return ret;
 }
 
+// Takes 11-bit depth data and rescales to 
+// 8-bit colour data to send to UI
 function ranger(data) {
   var ret = []
   for (i in data) {
@@ -174,7 +173,7 @@ function ranger(data) {
   }
   return ret;
 }
-
+// Handles an arbitrarily long horizon for previous depth frames
 function longHorizon(cur) {
   var ret = cur.slice();
   for (i in last_sample) {
@@ -184,7 +183,7 @@ function longHorizon(cur) {
   }
   return ret;
 }
-
+// Processes recieved data
 function process(data) {
   var current = minimizer(data);
   if (last_sample[0] == null) {
@@ -197,6 +196,7 @@ function process(data) {
   last_sample.unshift(current.slice());
   last_sample.pop()
 }
+// Find centroid of the whole frame
 function centroid(arr,w,h) {
   var x_sum = 0;
   var y_sum = 0;
@@ -216,14 +216,17 @@ function centroid(arr,w,h) {
   }
   return ret;
 }
+// Handler for once the user has confirmed centroid position
 function lockCentroid() {
   centroid_locked = true;
   zeroAgain();
 }
+// Handler for when the user needs to recalibrate the sensor
 function zeroAgain() {
   sample_allowed = true;
 }
 
+// Handler for when sampling is happening
 function handleBuffer(msg) {
   if (sample_happening && sample_allowed) {
     sample(msg);
@@ -233,13 +236,7 @@ function handleBuffer(msg) {
     makePix(ranger(msg));
   }
 }
-function bufferize(msg) {
-	var buf = new Buffer(640*480*2);
-	for (i in msg) {
-		
-
-	}
-}
+// Send buffer to UI
 function makePix(msg) {
-	io.emit('not a chat',msg)
+	io.emit('pix',msg)
 }
